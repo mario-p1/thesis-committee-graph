@@ -1257,7 +1257,6 @@ dependencies = [
     { name = "jupyter" },
     { name = "matplotlib" },
     { name = "pandas" },
-    { name = "pyg-lib" },
     { name = "sentence-transformers" },
     { name = "torch" },
     { name = "torch-geometric" },
@@ -1269,7 +1268,6 @@ requires-dist = [
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "matplotlib", specifier = ">=3.10.7" },
     { name = "pandas", specifier = ">=2.3.3" },
-    { name = "pyg-lib", specifier = ">=0.5.0" },
     { name = "sentence-transformers", specifier = ">=5.1.2" },
     { name = "torch", specifier = "==2.8" },
     { name = "torch-geometric", specifier = ">=2.7.0" },
@@ -1941,15 +1939,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/fe/cf/d2d3b9f5699fb1e4615c8e32ff220203e43b248e1dfcc6736ad9057731ca/pycparser-2.23.tar.gz", hash = "sha256:78816d4f24add8f10a06d6f05b4d424ad9e96cfebf68a4ddc99c65c0720d00c2", size = 173734, upload-time = "2025-09-09T13:23:47.91Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a0/e3/59cd50310fc9b59512193629e1984c1f95e5c8ae6e5d8c69532ccc65a7fe/pycparser-2.23-py3-none-any.whl", hash = "sha256:e5c6e8d3fbad53479cab09ac03729e0a9faf2bee3db8208a550daf5af81a5934", size = 118140, upload-time = "2025-09-09T13:23:46.651Z" },
-]
-
-[[package]]
-name = "pyg-lib"
-version = "0.5.0+pt28cu128"
-source = { registry = "https://data.pyg.org/whl/torch-2.8.0+cu128.html" }
-wheels = [
-    { url = "https://data.pyg.org/whl/torch-2.8.0%2Bcu128/pyg_lib-0.5.0%2Bpt28cu128-cp313-cp313-linux_x86_64.whl" },
-    { url = "https://data.pyg.org/whl/torch-2.8.0%2Bcu128/pyg_lib-0.5.0%2Bpt28cu128-cp313-cp313-win_amd64.whl" },
 ]
 
 [[package]]
