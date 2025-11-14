@@ -24,11 +24,11 @@ def train_epoch(
 
         sampled_data = sampled_data.to(device)
 
-        pred = model.forward(sampled_data)
+        pred = model(sampled_data)
 
         loss = F.binary_cross_entropy_with_logits(
             pred,
-            sampled_data["thesis", "supervised_by", "mentor"].edge_label.float(),
+            sampled_data["thesis", "supervised_by", "mentor"].edge_label,
         )
 
         loss.backward()
@@ -111,9 +111,7 @@ def main():
         shuffle=False,
     )
 
-    breakpoint()
-
-    model = Model(hidden_channels=32, data=train_data)
+    model = Model(hidden_channels=64, data=train_data)
     print("=> Model")
     print(model)
 

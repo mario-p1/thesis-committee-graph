@@ -2,6 +2,7 @@ import torch
 from torch import Tensor
 from torch_geometric.data import HeteroData
 from torch_geometric.nn import SAGEConv, to_hetero
+import torch.nn.functional as F
 
 
 class GNN(torch.nn.Module):
@@ -11,14 +12,15 @@ class GNN(torch.nn.Module):
         self.conv2 = SAGEConv(hidden_channels, hidden_channels)
 
     def forward(self, x: Tensor, edge_index: Tensor) -> Tensor:
-        x = self.conv1(x, edge_index).relu()
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
         x = self.conv2(x, edge_index)
         return x
 
 
 class Classifier(torch.nn.Module):
     def forward(
-        self, x_mentor: Tensor, x_thesis: Tensor, edge_label_index: Tensor
+        self, x_thesis: Tensor, x_mentor: Tensor, edge_label_index: Tensor
     ) -> Tensor:
         edge_feat_thesis = x_thesis[edge_label_index[0]]
         edge_feat_mentor = x_mentor[edge_label_index[1]]
@@ -34,7 +36,7 @@ class Model(torch.nn.Module):
         self.mentor_emb = torch.nn.Embedding(data["mentor"].num_nodes, hidden_channels)
 
         self.gnn = GNN(hidden_channels)
-        self.gnn = to_hetero(self.gnn, data.metadata())
+        self.gnn = to_hetero(self.gnn, metadata=data.metadata())
 
         self.classifier = Classifier()
 
@@ -48,8 +50,8 @@ class Model(torch.nn.Module):
         x_dict = self.gnn(x_dict, data.edge_index_dict)
 
         pred = self.classifier(
-            x_dict["mentor"],
             x_dict["thesis"],
+            x_dict["mentor"],
             data["thesis", "supervised_by", "mentor"].edge_label_index,
         )
 
