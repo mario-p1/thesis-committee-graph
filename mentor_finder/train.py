@@ -1,13 +1,20 @@
 from pathlib import Path
 
 import pandas as pd
-from sklearn.metrics import classification_report
+
+from sklearn.metrics import (
+    classification_report,
+    accuracy_score,
+    f1_score,
+    precision_score,
+    recall_score,
+)
 import torch
 import torch.nn.functional as F
 import torch_geometric.transforms as T
 import tqdm
 from torch_geometric.loader import LinkNeighborLoader
-
+import mlflow
 from mentor_finder.data import build_graph, load_raw_committee_csv
 from mentor_finder.model import Model
 
@@ -40,7 +47,9 @@ def train_epoch(
     return total_loss / total_examples
 
 
-def validate(model: Model, loader: LinkNeighborLoader, device: torch.device):
+def validate(
+    model: Model, loader: LinkNeighborLoader, device: torch.device
+) -> tuple[float, list, list]:
     model.eval()
     all_preds = []
     all_labels = []
@@ -62,14 +71,11 @@ def validate(model: Model, loader: LinkNeighborLoader, device: torch.device):
             total_loss += loss.item() * pred.numel()
             total_examples += pred.numel()
 
-    return {
-        "loss": total_loss / total_examples,
-        "classification_report": classification_report(
-            torch.cat(all_labels),
-            torch.cat(all_preds),
-            zero_division=0,
-        ),
-    }
+    return (
+        total_loss / total_examples,
+        torch.cat(all_preds),
+        torch.cat(all_labels),
+    )
 
 
 def main():
@@ -136,13 +142,36 @@ def main():
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
-    for epoch in range(1, 20):
+    for epoch in range(1, 15):
         train_loss = train_epoch(model, train_loader, optimizer, device)
-        val_loss = validate(model, val_loader, device)
+
+        val_loss, val_preds, val_labels = validate(model, val_loader, device)
+
+        val_accuracy = accuracy_score(val_labels, val_preds)
+        val_f1 = f1_score(val_labels, val_preds)
+        precision = precision_score(val_labels, val_preds)
+        recall = recall_score(val_labels, val_preds)
+
+        mlflow.log_metric("train_loss", train_loss, step=epoch)
+        mlflow.log_metric("val_loss", val_loss, step=epoch)
+        mlflow.log_metric("val_accuracy", val_accuracy, step=epoch)
+        mlflow.log_metric("val_f1", val_f1, step=epoch)
+        mlflow.log_metric("val_precision", precision, step=epoch)
+        mlflow.log_metric("val_recall", recall, step=epoch)
+
         print(
-            f"Epoch {epoch:02d}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss['loss']:.4f}"
+            f"Epoch {epoch:02d}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
         )
-        print(val_loss["classification_report"])
+
+    _, final_preds, final_labels = validate(model, val_loader, device)
+    print("Validation Classification Report:")
+    print(
+        classification_report(
+            final_labels,
+            final_preds,
+            target_names=["no mentor", "mentor"],
+        )
+    )
 
 
 if __name__ == "__main__":
