@@ -4,7 +4,7 @@ train:
 
 .PHONY:
 mlflow_ui:
-	uv run python -m mlflow ui
+	uv run python -m mlflow ui --backend-store-uri sqlite:///mlflow.db
 
 .PHONY:
 install_deps_cpu:

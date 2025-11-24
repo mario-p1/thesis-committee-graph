@@ -89,6 +89,8 @@ def main():
     learning_rate = 0.0001
     gnn_num_layers = 2
 
+    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+
     seed_everything(42)
     pd.options.display.max_rows = 20
     pd.options.display.max_columns = 20
