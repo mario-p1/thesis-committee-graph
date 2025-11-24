@@ -83,9 +83,9 @@ def main():
     disjoint_train_ratio = 0.7
     neg_sampling_train_ratio = 1
     neg_sampling_val_test_ratio = 1.0
-    num_epochs = 14
-    node_embedding_channels = 128
-    hidden_channels = 64
+    num_epochs = 80
+    node_embedding_channels = 64
+    hidden_channels = 32
     learning_rate = 0.0001
     gnn_num_layers = 2
 
@@ -169,6 +169,7 @@ def main():
 
     val_best_f1 = 0
     val_best_recall = 0
+    val_best_epoch = -1
 
     for epoch in range(1, num_epochs + 1):
         train_loss = train_epoch(model, train_loader, optimizer, device)
@@ -178,7 +179,10 @@ def main():
         # breakpoint()
         val_accuracy = accuracy_score(val_labels, val_preds)
         val_f1 = f1_score(val_labels, val_preds, average="weighted")
-        val_best_f1 = max(val_best_f1, val_f1)
+        if val_f1 > val_best_f1:
+            val_best_epoch = epoch
+            val_best_f1 = val_f1
+
         precision = precision_score(val_labels, val_preds)
         recall = recall_score(val_labels, val_preds)
         val_best_recall = max(val_best_recall, recall)
@@ -198,6 +202,7 @@ def main():
     print("F1 Score:", val_best_f1)
     print(f"Recall: {val_best_recall:.4f}")
     mlflow.log_metric("val_best_f1", val_best_f1)
+    mlflow.log_metric("val_best_epoch", val_best_epoch)
     mlflow.log_metric("val_best_recall", val_best_recall)
 
     _, final_preds, final_labels = validate(model, val_loader, device)
