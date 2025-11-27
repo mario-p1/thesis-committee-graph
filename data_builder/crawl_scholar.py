@@ -6,6 +6,7 @@ from typing import Any
 
 
 import serpapi
+import tqdm
 
 from thesis_graph.data import load_raw_committee_csv
 
@@ -83,32 +84,41 @@ def search_for_multiple_cyrillic_names(
     query_suffix=", FINKI",
     max_searches: int = 100,
 ) -> list[dict[str, Any]]:
-    profiles = []
+    result_profiles = []
     search_counter = max_searches
 
-    for name in cyrillic_names:
+    for name in tqdm.tqdm(cyrillic_names):
         name_variants = convert_cyrillic_to_latin(name)
 
         for name_variant in name_variants:
             query = f"{name_variant}{query_suffix}"
 
-            profiles = get_scholar_profiles(client, query)
-            if profiles is not None and len(profiles) > 0:
-                for profile in profiles:
-                    profiles.append(
+            scholar_profiles = get_scholar_profiles(client, query)
+            if scholar_profiles is not None and len(scholar_profiles) > 0:
+                for scholar_profile in scholar_profiles:
+                    result_profiles.append(
                         {
                             "original_name": name,
                             "search_query": query,
-                            "result": profile,
+                            **scholar_profile,
                         }
                     )
+                    with open(
+                        base_data_path / "google_scholar_profiles.json",
+                        "w",
+                        encoding="utf-8",
+                    ) as f:
+                        json.dump(result_profiles, f, ensure_ascii=False, indent=4)
                 break
 
         search_counter -= 1
         if search_counter == 0:
             break
 
-    return profiles
+    return result_profiles
+
+
+base_data_path = Path(__file__).parent.parent / "data"
 
 
 def main():
@@ -118,7 +128,6 @@ def main():
 
     client = serpapi.Client(api_key=serpapi_api_key)
 
-    base_data_path = Path(__file__).parent.parent / "data"
     researchers = (
         load_raw_committee_csv(base_data_path / "committee.csv")["mentor"]
         .unique()
@@ -127,14 +136,7 @@ def main():
     print("== Researchers ==")
     print(researchers)
 
-    google_scholar_profiles = search_for_multiple_cyrillic_names(
-        client, researchers, max_searches=150
-    )
-
-    with open(
-        base_data_path / "google_scholar_profiles.json", "w", encoding="utf-8"
-    ) as f:
-        json.dump(google_scholar_profiles, f, ensure_ascii=False, indent=4)
+    search_for_multiple_cyrillic_names(client, researchers, max_searches=150)
 
 
 if __name__ == "__main__":
