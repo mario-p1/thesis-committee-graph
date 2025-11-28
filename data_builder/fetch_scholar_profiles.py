@@ -1,14 +1,13 @@
-from datetime import datetime
 import itertools
 import json
-import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
-
 
 import serpapi
 import tqdm
 
+from data_builder.serpapi_client import get_serpapi_client
 from thesis_graph.data import load_thesis_csv
 
 base_data_path = Path(__file__).parent.parent / "data"
@@ -125,11 +124,7 @@ def search_for_multiple_cyrillic_names(
 
 
 def main():
-    serpapi_api_key = os.getenv("SERPAPI_API_KEY")
-    if serpapi_api_key is None:
-        raise ValueError("SERPAPI_API_KEY environment variable not set")
-
-    client = serpapi.Client(api_key=serpapi_api_key)
+    client = get_serpapi_client()
 
     researchers = (
         load_thesis_csv(base_data_path / "committee.csv")["mentor"].unique().tolist()
