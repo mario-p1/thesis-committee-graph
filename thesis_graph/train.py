@@ -83,11 +83,11 @@ def main():
     disjoint_train_ratio = 0.7
     neg_sampling_train_ratio = 1
     neg_sampling_val_test_ratio = 1.0
-    num_epochs = 50
+    num_epochs = 16
     node_embedding_channels = 64
     hidden_channels = 32
     learning_rate = 0.0001
-    gnn_num_layers = 6
+    gnn_num_layers = 5
 
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
@@ -221,7 +221,6 @@ def main():
             f"Epoch {epoch:02d}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
         )
 
-    print("=> Val best metrics:")
     mlflow.log_metric("val_best_f1", val_best_f1)
     mlflow.log_metric("val_best_epoch", val_best_epoch)
     mlflow.log_metric("val_best_recall", val_best_recall)
@@ -231,6 +230,7 @@ def main():
     mlflow.log_metric("val_best_precision", val_best_precision)
     mlflow.log_metric("val_best_recall", val_best_recall)
 
+    print(f"=> Val best metrics (epoch: {val_best_epoch}):")
     print(val_best_report)
 
     _, final_preds, final_labels = validate(model, val_loader, device)
