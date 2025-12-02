@@ -218,3 +218,5 @@ __marimo__/
 data/
 mlruns/
 mlflow.db
+mlflow.db-journal
+graph_data.pkl

@@ -1,3 +1,4 @@
+import pickle
 import mlflow
 import pandas as pd
 import torch
@@ -82,11 +83,11 @@ def main():
     disjoint_train_ratio = 0.7
     neg_sampling_train_ratio = 1
     neg_sampling_val_test_ratio = 1.0
-    num_epochs = 100
-    node_embedding_channels = 128
-    hidden_channels = 64
+    num_epochs = 50
+    node_embedding_channels = 64
+    hidden_channels = 32
     learning_rate = 0.0001
-    gnn_num_layers = 2
+    gnn_num_layers = 6
 
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
@@ -99,7 +100,10 @@ def main():
 
     researchers_df = load_researchers_csv(base_data_path / "researchers.csv")
 
-    data, metadata = build_graph(df, researchers_df)
+    # data, metadata = build_graph(df, researchers_df)
+    # pickle.dump((data, metadata), open("graph_data.pkl", "wb"))
+
+    data, metadata = pickle.load(open("graph_data.pkl", "rb"))
 
     print("=> Data")
     print(data)
@@ -171,52 +175,67 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     val_best_f1 = 0
+    val_best_accuracy = 0
+    val_best_precision = 0
     val_best_recall = 0
     val_best_epoch = -1
+    val_best_sensitivity = 0
+    val_best_specificity = 0
+    val_best_report = ""
 
     for epoch in range(1, num_epochs + 1):
         train_loss = train_epoch(model, train_loader, optimizer, device)
 
         val_loss, val_preds, val_labels = validate(model, val_loader, device)
 
-        # breakpoint()
-        val_accuracy = accuracy_score(val_labels, val_preds)
         val_f1 = f1_score(val_labels, val_preds, average="weighted")
+        val_accuracy = accuracy_score(val_labels, val_preds)
+        val_precision = precision_score(val_labels, val_preds)
+        val_recall = recall_score(val_labels, val_preds)
+        val_specificity = recall_score(val_labels, val_preds, pos_label=0)
+
         if val_f1 > val_best_f1:
             val_best_epoch = epoch
             val_best_f1 = val_f1
+            val_best_accuracy = val_accuracy
+            val_best_precision = val_precision
+            val_best_recall = val_recall
+            val_best_sensitivity = val_recall
+            val_best_specificity = val_specificity
 
-        precision = precision_score(val_labels, val_preds)
-        recall = recall_score(val_labels, val_preds)
-        val_best_recall = max(val_best_recall, recall)
+            val_best_report = classification_report(
+                val_labels,
+                val_preds,
+            )
 
         mlflow.log_metric("train_loss", train_loss, step=epoch)
         mlflow.log_metric("val_loss", val_loss, step=epoch)
-        mlflow.log_metric("val_accuracy", val_accuracy, step=epoch)
         mlflow.log_metric("val_f1", val_f1, step=epoch)
-        mlflow.log_metric("val_precision", precision, step=epoch)
-        mlflow.log_metric("val_recall", recall, step=epoch)
+        mlflow.log_metric("val_accuracy", val_accuracy, step=epoch)
+        mlflow.log_metric("val_precision", val_precision, step=epoch)
+        mlflow.log_metric("val_recall", val_recall, step=epoch)
+        mlflow.log_metric("val_sensitivity", val_recall, step=epoch)
+        mlflow.log_metric("val_specificity", val_specificity, step=epoch)
 
         print(
             f"Epoch {epoch:02d}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
         )
 
     print("=> Val best metrics:")
-    print("F1 Score:", val_best_f1)
-    print(f"Recall: {val_best_recall:.4f}")
     mlflow.log_metric("val_best_f1", val_best_f1)
     mlflow.log_metric("val_best_epoch", val_best_epoch)
     mlflow.log_metric("val_best_recall", val_best_recall)
+    mlflow.log_metric("val_best_sensitivity", val_best_sensitivity)
+    mlflow.log_metric("val_best_specificity", val_best_specificity)
+    mlflow.log_metric("val_best_accuracy", val_best_accuracy)
+    mlflow.log_metric("val_best_precision", val_best_precision)
+    mlflow.log_metric("val_best_recall", val_best_recall)
+
+    print(val_best_report)
 
     _, final_preds, final_labels = validate(model, val_loader, device)
-    print("Validation Classification Report:")
-    print(
-        classification_report(
-            final_labels,
-            final_preds,
-            target_names=["no mentor", "mentor"],
-        )
-    )
+    print("=> Latest epoch metrics:")
+    print(classification_report(final_labels, final_preds))
 
 
 if __name__ == "__main__":

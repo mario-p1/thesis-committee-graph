@@ -1,5 +1,6 @@
 from typing import Any
 
+import mlflow
 import numpy as np
 
 from thesis_graph.embedding import embed_text
@@ -14,11 +15,12 @@ def get_researchers_features(
     for researcher in researchers:
         names.append(researcher["name"])
         interests = researcher.get("interests", [])
-        articles = researcher.get("articles", [])
+        # articles = researcher.get("articles", [])
 
-        desc = f"Interests of research: {','.join(interests)}. Most popular articles: {','.join(articles)}"
+        desc = f"Interests of research: {','.join(interests)}"
         descriptions.append(desc)
 
+    mlflow.log_param("researchers_features", "Interests")
     embeddings = embed_text(descriptions)
     return {name: embedding for name, embedding in zip(names, embeddings)}
 
