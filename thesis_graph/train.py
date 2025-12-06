@@ -50,10 +50,13 @@ def train_epoch(
 
 def validate(
     model: Model, loader: LinkNeighborLoader, device: torch.device
-) -> tuple[float, list, list]:
+) -> tuple[float, list, list, list]:
+    # Return: loss, scores, preds, labels
     model.eval()
+    all_scores = []
     all_preds = []
     all_labels = []
+
     total_loss = total_examples = 0
     with torch.no_grad():
         for sampled_data in loader:
@@ -62,6 +65,7 @@ def validate(
             pred = model.forward(sampled_data)
             labels = sampled_data["thesis", "supervised_by", "mentor"].edge_label.cpu()
 
+            all_scores.append(pred.cpu())
             all_preds.append((pred > 0).cpu().int())
             all_labels.append(labels)
 
@@ -74,6 +78,7 @@ def validate(
 
     return (
         total_loss / total_examples,
+        torch.cat(all_scores),
         torch.cat(all_preds),
         torch.cat(all_labels),
     )
@@ -84,7 +89,7 @@ def main():
     disjoint_train_ratio = 0.7
     neg_sampling_train_ratio = 1
     neg_sampling_val_test_ratio = 1.0
-    num_epochs = 16
+    num_epochs = 50
     node_embedding_channels = 64
     hidden_channels = 32
     learning_rate = 0.0001
@@ -179,16 +184,21 @@ def main():
     val_best_metrics = {}
     val_best_report = ""
 
-    for epoch in range(1, num_epochs + 1):
-        train_loss = train_epoch(model, train_loader, optimizer, device)
+    for epoch in range(0, num_epochs + 1):
+        if epoch > 0:
+            train_epoch(model, train_loader, optimizer, device)
 
-        val_loss, val_preds, val_labels = validate(model, val_loader, device)
-        _, train_preds, train_labels = validate(model, train_loader, device)
+        val_loss, val_scores, val_preds, val_labels = validate(
+            model, val_loader, device
+        )
+        train_loss, train_scores, train_preds, train_labels = validate(
+            model, train_loader, device
+        )
 
-        val_metrics = get_metrics(val_labels, val_preds)
-        train_metrics = get_metrics(train_labels, train_preds)
+        val_metrics = get_metrics(val_labels, val_scores, val_preds)
+        train_metrics = get_metrics(train_labels, train_scores, train_preds)
 
-        if val_metrics["f1"] > val_best_metrics.get("f1", 0):
+        if val_metrics["roc_auc"] > val_best_metrics.get("roc_auc", 0):
             val_best_epoch = epoch
             val_best_metrics = val_metrics
 
@@ -197,22 +207,23 @@ def main():
                 val_preds,
             )
 
-        mlflow.log_metric("train_loss", train_loss, step=epoch)
-        mlflow.log_metric("val_loss", val_loss, step=epoch)
-
-        mlflow.log_metrics(add_prefix_to_metrics(val_metrics, "val"), step=epoch)
         mlflow.log_metrics(add_prefix_to_metrics(train_metrics, "train"), step=epoch)
 
+        mlflow.log_metric("val_loss", val_loss, step=epoch)
+        mlflow.log_metrics(add_prefix_to_metrics(val_metrics, "val"), step=epoch)
+
+        mlflow.log_metric("train_loss", train_loss, step=epoch)
         print(
             f"Epoch {epoch:02d}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
         )
 
+    mlflow.log_metric("val_best_epoch", val_best_epoch)
     mlflow.log_metrics(add_prefix_to_metrics(val_best_metrics, "val_best"))
 
     print(f"=> Val best metrics (epoch: {val_best_epoch}):")
     print(val_best_report)
 
-    _, final_preds, final_labels = validate(model, val_loader, device)
+    _, final_scores, final_preds, final_labels = validate(model, val_loader, device)
     print("=> Latest epoch metrics:")
     print(classification_report(final_labels, final_preds))
 
