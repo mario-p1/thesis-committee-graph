@@ -75,3 +75,12 @@ class Model(torch.nn.Module):
         )
 
         return pred
+
+    def get_prediction_new_thesis(self, thesis_features: Tensor) -> Tensor:
+        thesis_node_repr = self.thesis_lin(thesis_features.unsqueeze(0))
+
+        mentor_node_repr = self.mentor_emb.weight
+
+        scores = (thesis_node_repr * mentor_node_repr).sum(dim=-1)
+
+        return scores

@@ -3,6 +3,7 @@ import mlflow
 import pandas as pd
 import torch
 import torch.nn.functional as F
+import torch_geometric
 import torch_geometric.transforms as T
 import tqdm
 from sklearn.metrics import classification_report
@@ -80,6 +81,43 @@ def validate(
     )
 
 
+def get_ranking_scores(
+    data: torch_geometric.data.HeteroData,
+    model: Model,
+    device: torch.device,
+    epoch: int,
+) -> torch.Tensor:
+    model.eval()
+
+    metrics = {}
+
+    with torch.no_grad():
+        for real_mentor, thesis_features in zip(
+            data[("thesis", "supervised_by", "mentor")].edge_label_index[1],
+            data["thesis"].x,
+        ):
+            thesis_features = thesis_features.to(device)
+            scores = model.get_prediction_new_thesis(thesis_features)
+            rankings = scores.argsort(descending=True).to("cpu").numpy().tolist()
+
+            rank_of_real_mentor = rankings.index(real_mentor.item()) + 1
+            reciprocal_rank = 1.0 / rank_of_real_mentor
+
+            metrics["rankings"] = metrics.get("rankings", []) + [rank_of_real_mentor]
+            metrics["reciprocal_ranks"] = metrics.get("reciprocal_ranks", []) + [
+                reciprocal_rank
+            ]
+
+    # Average
+    mean_rank = sum(metrics["rankings"]) / len(metrics["rankings"])
+    mean_reciprocal_rank = sum(metrics["reciprocal_ranks"]) / len(
+        metrics["reciprocal_ranks"]
+    )
+
+    mlflow.log_metric("mean_rank", mean_rank, step=epoch)
+    mlflow.log_metric("mean_reciprocal_rank", mean_reciprocal_rank, step=epoch)
+
+
 def main():
     # Hyperparameters
     disjoint_train_ratio = 0.7
@@ -123,7 +161,7 @@ def main():
         num_val=0.1,
         num_test=0.1,
         disjoint_train_ratio=disjoint_train_ratio,
-        neg_sampling_ratio=neg_sampling_val_test_ratio,
+        neg_sampling_ratio=0,
         add_negative_train_samples=False,
         edge_types=[("thesis", "supervised_by", "mentor")],
         rev_edge_types=[("mentor", "supervises", "thesis")],
@@ -158,6 +196,7 @@ def main():
         ),
         edge_label=val_data["thesis", "supervised_by", "mentor"].edge_label,
         shuffle=False,
+        neg_sampling_ratio=neg_sampling_val_test_ratio,
     )
 
     test_loader = LinkNeighborLoader(
@@ -170,6 +209,7 @@ def main():
         ),
         edge_label=test_data["thesis", "supervised_by", "mentor"].edge_label,
         shuffle=False,
+        neg_sampling_ratio=neg_sampling_val_test_ratio,
     )
 
     model = Model(
@@ -201,15 +241,17 @@ def main():
                 pos_weight=pos_weight,
             )
 
-        val_loss, val_scores, val_preds, val_labels = validate(
-            model, val_loader, device
-        )
         train_loss, train_scores, train_preds, train_labels = validate(
             model, train_loader, device
+        )
+        val_loss, val_scores, val_preds, val_labels = validate(
+            model, val_loader, device
         )
 
         val_metrics = get_metrics(val_labels, val_scores, val_preds)
         train_metrics = get_metrics(train_labels, train_scores, train_preds)
+
+        get_ranking_scores(val_data, model, device, epoch=epoch)
 
         if val_metrics["pr_auc"] > val_best_metrics.get("pr_auc", 0):
             val_best_epoch = epoch
