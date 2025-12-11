@@ -26,13 +26,11 @@ class Model(torch.nn.Module):
     ):
         super().__init__()
 
+        # Thesis features
         self.thesis_lin = torch.nn.Linear(384, node_embedding_channels)
 
-        self.thesis_emb = torch.nn.Embedding(
-            data["thesis"].num_nodes, node_embedding_channels
-        )
-
-        self.mentor_lin = torch.nn.Linear(117, node_embedding_channels)
+        # Mentor features
+        # self.mentor_lin = torch.nn.Linear(117, node_embedding_channels)
 
         self.mentor_emb = torch.nn.Embedding(
             data["mentor"].num_nodes, node_embedding_channels
@@ -49,9 +47,6 @@ class Model(torch.nn.Module):
 
     def forward(self, data: HeteroData) -> Tensor:
         thesis_node_repr = self.thesis_lin(data["thesis"].x)
-        # + self.thesis_emb(
-        #     data["thesis"].node_id
-        # )
         mlflow.log_param("using_thesis_node_features", "abstract_embeding")
 
         # mentor_node_repr = self.mentor_lin(data["mentor"].x) + self.mentor_emb(
