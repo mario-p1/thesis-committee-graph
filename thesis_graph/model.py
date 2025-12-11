@@ -48,9 +48,10 @@ class Model(torch.nn.Module):
         self.classifier = Classifier()
 
     def forward(self, data: HeteroData) -> Tensor:
-        thesis_node_repr = self.thesis_lin(data["thesis"].x) + self.thesis_emb(
-            data["thesis"].node_id
-        )
+        thesis_node_repr = self.thesis_lin(data["thesis"].x)
+        # + self.thesis_emb(
+        #     data["thesis"].node_id
+        # )
         mlflow.log_param("using_thesis_node_features", "abstract_embeding")
 
         # mentor_node_repr = self.mentor_lin(data["mentor"].x) + self.mentor_emb(

@@ -93,14 +93,13 @@ def get_ranking_scores(
     n = 0
 
     with torch.no_grad():
-        for real_mentor, thesis_features in zip(
+        for thesis_id, real_mentor in zip(
+            data[("thesis", "supervised_by", "mentor")].edge_label_index[0],
             data[("thesis", "supervised_by", "mentor")].edge_label_index[1],
-            data["thesis"].x,
         ):
-            # TODO: Check if the data is sampled correctly
+            thesis_features = data["thesis"].x[thesis_id].to(device)
             real_mentor = real_mentor.to("cpu").item()
 
-            thesis_features = thesis_features.to(device)
             scores = model.get_prediction_new_thesis(thesis_features)
 
             rankings = scores.argsort(descending=True).to("cpu").numpy().tolist()
