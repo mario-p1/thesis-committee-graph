@@ -1,9 +1,9 @@
 import pickle
+
 import mlflow
 import pandas as pd
 import torch
 import torch.nn.functional as F
-import torch_geometric
 import torch_geometric.transforms as T
 import tqdm
 from sklearn.metrics import classification_report
@@ -11,7 +11,7 @@ from torch_geometric import seed_everything
 from torch_geometric.loader import LinkNeighborLoader
 
 from thesis_graph.data import build_graph, load_researchers_csv, load_thesis_csv
-from thesis_graph.metrics import add_prefix_to_metrics, get_metrics
+from thesis_graph.metrics import add_prefix_to_metrics, get_metrics, get_ranking_metrics
 from thesis_graph.model import Model
 from thesis_graph.utils import base_data_path
 
@@ -81,42 +81,6 @@ def validate(
     )
 
 
-def get_ranking_scores(
-    data: torch_geometric.data.HeteroData,
-    model: Model,
-    device: torch.device,
-) -> torch.Tensor:
-    model.eval()
-
-    ranks_sum = 0
-    reciprocal_ranks_sum = 0.0
-    n = 0
-
-    with torch.no_grad():
-        for thesis_id, real_mentor in zip(
-            data[("thesis", "supervised_by", "mentor")].edge_label_index[0],
-            data[("thesis", "supervised_by", "mentor")].edge_label_index[1],
-        ):
-            thesis_features = data["thesis"].x[thesis_id].to(device)
-            real_mentor = real_mentor.to("cpu").item()
-
-            scores = model.get_prediction_new_thesis(thesis_features)
-
-            rankings = scores.argsort(descending=True).to("cpu").numpy().tolist()
-
-            rank_of_real_mentor = rankings.index(real_mentor) + 1
-            reciprocal_rank = 1.0 / rank_of_real_mentor
-
-            ranks_sum += rank_of_real_mentor
-            reciprocal_ranks_sum += reciprocal_rank
-            n += 1
-
-    return {
-        "mean_rank": ranks_sum / n,
-        "mean_reciprocal_rank": reciprocal_ranks_sum / n,
-    }
-
-
 def main():
     # Hyperparameters
     disjoint_train_ratio = 0.7
@@ -141,6 +105,8 @@ def main():
     # pickle.dump((data, metadata), open("graph_data.pkl", "wb"))
 
     data, metadata = pickle.load(open("graph_data.pkl", "rb"))
+
+    mentors_dict = metadata["mentors_dict"]
 
     print("=> Data")
     print(data)
@@ -250,8 +216,10 @@ def main():
         val_metrics = get_metrics(val_labels, val_scores, val_preds)
         train_metrics = get_metrics(train_labels, train_scores, train_preds)
 
-        train_ranking_scores = get_ranking_scores(train_data, model, device)
-        val_ranking_scores = get_ranking_scores(val_data, model, device)
+        train_ranking_scores = get_ranking_metrics(
+            train_data, model, device, mentors_dict
+        )
+        val_ranking_scores = get_ranking_metrics(val_data, model, device, mentors_dict)
 
         if val_metrics["pr_auc"] > val_best_metrics.get("pr_auc", 0):
             val_best_epoch = epoch

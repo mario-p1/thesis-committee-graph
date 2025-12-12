@@ -1,3 +1,4 @@
+from collections import defaultdict
 from sklearn.metrics import (
     average_precision_score,
     f1_score,
@@ -6,6 +7,11 @@ from sklearn.metrics import (
     accuracy_score,
     roc_auc_score,
 )
+import torch
+import torch_geometric
+
+from thesis_graph.model import Model
+from thesis_graph.utils import reverse_dict
 
 
 def get_metrics(y_true, y_scores, y_preds) -> dict[str, float]:
@@ -31,3 +37,54 @@ def get_metrics(y_true, y_scores, y_preds) -> dict[str, float]:
 
 def add_prefix_to_metrics(metrics: dict[str, float], prefix: str) -> dict[str, float]:
     return {f"{prefix}_{key}": value for key, value in metrics.items()}
+
+
+def get_ranking_metrics(
+    data: torch_geometric.data.HeteroData,
+    model: Model,
+    device: torch.device,
+    mentors_dict: dict[int, str],
+) -> torch.Tensor:
+    mentors_dict = reverse_dict(mentors_dict)
+
+    model.eval()
+
+    ranks_sum = 0
+    reciprocal_ranks_sum = 0.0
+    n = 0
+
+    average_mentor_rank = defaultdict(lambda: 0)
+
+    with torch.no_grad():
+        for thesis_id, real_mentor in zip(
+            data[("thesis", "supervised_by", "mentor")].edge_label_index[0],
+            data[("thesis", "supervised_by", "mentor")].edge_label_index[1],
+        ):
+            thesis_features = data["thesis"].x[thesis_id].to(device)
+            real_mentor = real_mentor.to("cpu").item()
+
+            scores = model.get_prediction_new_thesis(thesis_features)
+
+            rankings = scores.argsort(descending=True).to("cpu").numpy().tolist()
+
+            for rank, mentor_id in enumerate(rankings):
+                average_mentor_rank[mentor_id] += rank + 1
+
+            rank_of_real_mentor = rankings.index(real_mentor) + 1
+            reciprocal_rank = 1.0 / rank_of_real_mentor
+
+            ranks_sum += rank_of_real_mentor
+            reciprocal_ranks_sum += reciprocal_rank
+            n += 1
+
+    for mentor_id in average_mentor_rank.keys():
+        average_mentor_rank[mentor_id] /= n
+
+    return {
+        "mean_rank": ranks_sum / n,
+        "mean_reciprocal_rank": reciprocal_ranks_sum / n,
+        **{
+            f"average_mentor_rank_{mentors_dict[mentor_id]}": avg_rank
+            for mentor_id, avg_rank in average_mentor_rank.items()
+        },
+    }

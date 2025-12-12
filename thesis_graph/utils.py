@@ -71,3 +71,7 @@ def save_json_to_file(save_path: Path, result: Any):
 def load_json_file(path: Path):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def reverse_dict(d: dict[Any, Any]) -> dict[Any, Any]:
+    return {v: k for k, v in d.items()}
