@@ -7,13 +7,8 @@ from torch_geometric.nn.models import GraphSAGE
 
 
 class Classifier(torch.nn.Module):
-    def forward(
-        self, x_thesis: Tensor, x_mentor: Tensor, edge_label_index: Tensor
-    ) -> Tensor:
-        edge_feat_thesis = x_thesis[edge_label_index[0]]
-        edge_feat_mentor = x_mentor[edge_label_index[1]]
-
-        return (edge_feat_thesis * edge_feat_mentor).sum(dim=-1)
+    def forward(self, x_thesis: Tensor, x_mentor: Tensor) -> Tensor:
+        return (x_thesis * x_mentor).sum(dim=-1)
 
 
 class Model(torch.nn.Module):
@@ -64,10 +59,11 @@ class Model(torch.nn.Module):
 
         x_dict = self.gnn(x_dict, data.edge_index_dict)
 
+        eli = data["thesis", "supervised_by", "mentor"].edge_label_index
+
         pred = self.classifier(
-            x_dict["thesis"],
-            x_dict["mentor"],
-            data["thesis", "supervised_by", "mentor"].edge_label_index,
+            x_dict["thesis"][eli[0]],
+            x_dict["mentor"][eli[1]],
         )
 
         return pred
@@ -77,6 +73,9 @@ class Model(torch.nn.Module):
 
         mentor_node_repr = self.mentor_emb.weight
 
-        scores = (thesis_node_repr * mentor_node_repr).sum(dim=-1)
+        scores = self.classifier(
+            thesis_node_repr.repeat(mentor_node_repr.size(0), 1),
+            mentor_node_repr,
+        )
 
         return scores
