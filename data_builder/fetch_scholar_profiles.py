@@ -4,9 +4,9 @@ import serpapi
 import tqdm
 
 from data_builder.serpapi_client import get_serpapi_client
+from thesis_graph.config import BASE_DATA_PATH
 from thesis_graph.data import load_thesis_csv
 from thesis_graph.utils import (
-    base_data_path,
     convert_cyrillic_to_latin,
     get_current_time_str,
     save_json_to_file,
@@ -39,7 +39,7 @@ def search_for_multiple_names(
     search_counter = max_searches
 
     save_path = (
-        base_data_path / "scholar_crawls" / f"profiles_{get_current_time_str()}.json"
+        BASE_DATA_PATH / "scholar_crawls" / f"profiles_{get_current_time_str()}.json"
     )
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -72,7 +72,7 @@ def search_for_multiple_names(
 
 def main():
     researchers = (
-        load_thesis_csv(base_data_path / "committee.csv")["mentor"].unique().tolist()
+        load_thesis_csv(BASE_DATA_PATH / "committee.csv")["mentor"].unique().tolist()
     )
     query_suffix = ", FINKI"
 

@@ -10,10 +10,15 @@ from sklearn.metrics import classification_report
 from torch_geometric import seed_everything
 from torch_geometric.loader import LinkNeighborLoader
 
-from thesis_graph.data import build_graph, load_researchers_csv, load_thesis_csv
+from thesis_graph.data import (
+    build_mentors_dict,
+    load_researchers_csv,
+    load_thesis_csv,
+)
+from thesis_graph.graph import build_graphs, build_single_graph
 from thesis_graph.metrics import add_prefix_to_metrics, get_metrics, get_ranking_metrics
 from thesis_graph.model import Model
-from thesis_graph.utils import base_data_path
+from thesis_graph.config import BASE_DATA_PATH
 
 
 def train_epoch(
@@ -99,19 +104,6 @@ def main():
     pd.options.display.max_rows = 20
     pd.options.display.max_columns = 20
 
-    # df = load_thesis_csv(base_data_path / "committee.csv")
-    # researchers_df = load_researchers_csv(base_data_path / "researchers.csv")
-    # data, metadata = build_graph(df, researchers_df)
-    # pickle.dump((data, metadata), open("graph_data.pkl", "wb"))
-
-    data, metadata = pickle.load(open("graph_data.pkl", "rb"))
-
-    mentors_dict = metadata["mentors_dict"]
-
-    print("=> Data")
-    print(data)
-    print(metadata)
-
     mlflow.log_param("disjoint_train_ratio", disjoint_train_ratio)
     mlflow.log_param("neg_sampling_train_ratio", neg_sampling_train_ratio)
     mlflow.log_param("pos_weight", pos_weight)
@@ -122,21 +114,14 @@ def main():
     mlflow.log_param("learning_rate", learning_rate)
     mlflow.log_param("gnn_num_layers", gnn_num_layers)
 
-    transform = T.RandomLinkSplit(
-        num_val=0.1,
-        num_test=0.1,
-        disjoint_train_ratio=disjoint_train_ratio,
-        neg_sampling_ratio=0,
-        add_negative_train_samples=False,
-        edge_types=[("thesis", "supervised_by", "mentor")],
-        rev_edge_types=[("mentor", "supervises", "thesis")],
-    )
+    # Build and save graph data
+    # graphs_data = build_graphs(base_data_path / "committee.csv")
+    # pickle.dump(graphs_data, open("graph_data.pkl", "wb"))
 
-    train_data, val_data, test_data = transform(data)
+    # Load saved graph data from disk
+    graphs_data = pickle.load(open("graph_data.pkl", "rb"))
 
-    print("=> Data after RandomLinkSplit")
-    print(train_data)
-    print(val_data)
+    mentors_dict, train_data, val_data, test_data = graphs_data
 
     train_loader = LinkNeighborLoader(
         data=train_data,
@@ -155,11 +140,11 @@ def main():
         data=val_data,
         num_neighbors=[20, 10],
         batch_size=64,
-        edge_label_index=(
-            ("thesis", "supervised_by", "mentor"),
-            val_data["thesis", "supervised_by", "mentor"].edge_label_index,
-        ),
-        edge_label=val_data["thesis", "supervised_by", "mentor"].edge_label,
+        # edge_label_index=(
+        #     ("thesis", "supervised_by", "mentor"),
+        #     val_data["thesis", "supervised_by", "mentor"].edge_label_index,
+        # ),
+        # edge_label=val_data["thesis", "supervised_by", "mentor"].edge_label,
         shuffle=False,
         neg_sampling_ratio=neg_sampling_val_test_ratio,
     )
@@ -168,11 +153,11 @@ def main():
         data=test_data,
         num_neighbors=[20, 10],
         batch_size=64,
-        edge_label_index=(
-            ("thesis", "supervised_by", "mentor"),
-            test_data["thesis", "supervised_by", "mentor"].edge_label_index,
-        ),
-        edge_label=test_data["thesis", "supervised_by", "mentor"].edge_label,
+        # edge_label_index=(
+        #     ("thesis", "supervised_by", "mentor"),
+        #     test_data["thesis", "supervised_by", "mentor"].edge_label_index,
+        # ),
+        # edge_label=test_data["thesis", "supervised_by", "mentor"].edge_label,
         shuffle=False,
         neg_sampling_ratio=neg_sampling_val_test_ratio,
     )

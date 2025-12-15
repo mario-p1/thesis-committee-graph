@@ -5,9 +5,6 @@ from pathlib import Path
 from typing import Any
 
 
-base_data_path = Path(__file__).parent.parent / "data"
-
-
 def convert_cyrillic_to_latin(text: str) -> list[list[str]]:
     alphabet = {
         "А": ["A"],

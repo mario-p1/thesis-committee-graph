@@ -1,10 +1,11 @@
 import pandas as pd
-from thesis_graph.utils import load_json_file, base_data_path
+from thesis_graph.config import BASE_DATA_PATH
+from thesis_graph.utils import load_json_file
 
 
 def main():
-    profiles = load_json_file(base_data_path / "scholar_profiles.json")
-    scholar = load_json_file(base_data_path / "scholar_details.json")
+    profiles = load_json_file(BASE_DATA_PATH / "scholar_profiles.json")
+    scholar = load_json_file(BASE_DATA_PATH / "scholar_details.json")
     n_articles_to_include = 10
 
     profiles_df = pd.DataFrame(
@@ -45,7 +46,7 @@ def main():
     merged_df = profiles_df.merge(scholar_df, on="author_id", how="left")
     merged_df = merged_df.drop(columns=["author_id"])
 
-    merged_df.to_csv(base_data_path / "researchers.csv", index=False)
+    merged_df.to_csv(BASE_DATA_PATH / "researchers.csv", index=False)
     print("Saved researchers.csv")
 
 
