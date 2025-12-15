@@ -17,12 +17,13 @@ def load_thesis_csv(path: Path) -> pd.DataFrame:
         "mentor",
         "c1",
         "c2",
-        "thesis_application_date",
+        "application_date",
         "thesis_status",
         "thesis_desc_mk",
         "thesis_desc_en",
         "thesis_title_en",
     ]
+    df["application_date"] = pd.to_datetime(df["application_date"], format="%d.%m.%Y")
     return df
 
 
