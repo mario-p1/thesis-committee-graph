@@ -86,15 +86,15 @@ def main():
     neg_sampling_val_test_ratio = 1
 
     ## Training
-    num_epochs = 200
-    learning_rate = 0.0001
+    num_epochs = 5000
+    learning_rate = 0.00005
 
     ## Model embedding
-    node_embedding_channels = 256
+    node_embedding_channels = 128
 
     ## Model GNN
-    hidden_channels = 256
-    gnn_num_layers = 2
+    hidden_channels = 64
+    gnn_num_layers = 1
 
     seed_everything(42)
     pd.options.display.max_rows = 20
@@ -115,8 +115,8 @@ def main():
     )
 
     # Build and save graph data
-    graphs_data = build_graphs(disjoint_train_ratio=disjoint_train_ratio)
-    pickle.dump(graphs_data, open("graph_data.pkl", "wb"))
+    # graphs_data = build_graphs(disjoint_train_ratio=disjoint_train_ratio)
+    # pickle.dump(graphs_data, open("graph_data.pkl", "wb"))
 
     # Load saved graph data from disk
     graphs_data = pickle.load(open("graph_data.pkl", "rb"))
@@ -148,7 +148,7 @@ def main():
         ),
         edge_label=val_data["thesis", "supervised_by", "mentor"].edge_label,
         shuffle=False,
-        neg_sampling_ratio=neg_sampling_val_test_ratio,
+        neg_sampling_ratio=0,
     )
 
     model = Model(

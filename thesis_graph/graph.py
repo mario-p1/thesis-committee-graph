@@ -150,6 +150,8 @@ def build_graphs(
     val_data = build_single_graph(
         val_df, mentors_dict=mentors_dict, add_edge_labels=True
     )
+
+    add_negatives_to_edge_labels(val_data, ("thesis", "supervised_by", "mentor"), 1)
     test_data = build_single_graph(
         test_df, mentors_dict=mentors_dict, add_edge_labels=True
     )
