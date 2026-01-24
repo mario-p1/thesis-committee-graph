@@ -86,7 +86,7 @@ def main():
     neg_sampling_val_test_ratio = 1
 
     ## Training
-    num_epochs = 5000
+    num_epochs = 100
     learning_rate = 0.00005
 
     ## Model embedding
