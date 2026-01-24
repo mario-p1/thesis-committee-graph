@@ -1,4 +1,5 @@
 import pickle
+from random import random
 
 import pandas as pd
 import torch
@@ -97,6 +98,7 @@ def main():
     gnn_num_layers = 2
 
     seed_everything(42)
+    random.seed(42)
     pd.options.display.max_rows = 20
     pd.options.display.max_columns = 20
 
