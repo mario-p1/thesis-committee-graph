@@ -1,17 +1,19 @@
 import pickle
 
-import mlflow
 import pandas as pd
 import torch
 import torch.nn.functional as F
 import tqdm
 from sklearn.metrics import classification_report
+from torch.utils.tensorboard import SummaryWriter
 from torch_geometric import seed_everything
 from torch_geometric.loader import LinkNeighborLoader
 
 from thesis_graph.graph import build_graphs
 from thesis_graph.metrics import add_prefix_to_metrics, get_metrics, get_ranking_metrics
 from thesis_graph.model import Model
+
+writer = SummaryWriter()
 
 
 def train_epoch(
@@ -87,20 +89,23 @@ def main():
     learning_rate = 0.001
     gnn_num_layers = 3
 
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
-
     seed_everything(42)
     pd.options.display.max_rows = 20
     pd.options.display.max_columns = 20
 
-    mlflow.log_param("disjoint_train_ratio", disjoint_train_ratio)
-    mlflow.log_param("neg_sampling_train_ratio", neg_sampling_train_ratio)
-    mlflow.log_param("neg_sampling_val_test_ratio", neg_sampling_val_test_ratio)
-    mlflow.log_param("num_epochs", num_epochs)
-    mlflow.log_param("node_embedding_channels", node_embedding_channels)
-    mlflow.log_param("hidden_channels", hidden_channels)
-    mlflow.log_param("learning_rate", learning_rate)
-    mlflow.log_param("gnn_num_layers", gnn_num_layers)
+    writer.add_hparams(
+        {
+            "disjoint_train_ratio": disjoint_train_ratio,
+            "neg_sampling_train_ratio": neg_sampling_train_ratio,
+            "neg_sampling_val_test_ratio": neg_sampling_val_test_ratio,
+            "num_epochs": num_epochs,
+            "node_embedding_channels": node_embedding_channels,
+            "hidden_channels": hidden_channels,
+            "learning_rate": learning_rate,
+            "gnn_num_layers": gnn_num_layers,
+        },
+        {},
+    )
 
     # Build and save graph data
     graphs_data = build_graphs(disjoint_train_ratio=disjoint_train_ratio)
@@ -189,6 +194,9 @@ def main():
             model, val_loader, device
         )
 
+        writer.add_scalar("Loss/train", train_loss, epoch)
+        writer.add_scalar("Loss/val", val_loss, epoch)
+
         val_metrics = get_metrics(val_labels, val_scores, val_preds)
         train_metrics = get_metrics(train_labels, train_scores, train_preds)
 
@@ -206,22 +214,11 @@ def main():
                 val_preds,
             )
 
-        mlflow.log_metric("train_loss", train_loss, step=epoch)
-        mlflow.log_metrics(add_prefix_to_metrics(train_metrics, "train"), step=epoch)
-        mlflow.log_metrics(
-            add_prefix_to_metrics(train_ranking_scores, "train"), step=epoch
-        )
-
-        mlflow.log_metric("val_loss", val_loss, step=epoch)
-        mlflow.log_metrics(add_prefix_to_metrics(val_metrics, "val"), step=epoch)
-        mlflow.log_metrics(add_prefix_to_metrics(val_ranking_scores, "val"), step=epoch)
-
         print(
             f"Epoch {epoch:02d}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
         )
 
-    mlflow.log_metric("val_best_epoch", val_best_epoch)
-    mlflow.log_metrics(add_prefix_to_metrics(val_best_metrics, "val_best"))
+        writer.flush()
 
     print(f"=> Val best metrics (epoch: {val_best_epoch}):")
     print(val_best_report)
@@ -235,6 +232,9 @@ def main():
     # test_metrics = get_metrics(test_labels, test_scores, test_preds)
     # print(classification_report(test_labels, test_preds))
     # print(pd.DataFrame({"test": test_metrics}))
+
+    writer.flush()
+    writer.close()
 
 
 if __name__ == "__main__":

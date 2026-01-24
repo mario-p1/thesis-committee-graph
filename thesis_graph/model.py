@@ -1,4 +1,3 @@
-import mlflow
 import torch
 from torch import Tensor
 from torch_geometric.data import HeteroData
@@ -40,7 +39,6 @@ class Model(torch.nn.Module):
 
     def forward(self, data: HeteroData) -> Tensor:
         thesis_node_repr = self.thesis_lin(data["thesis"].x)
-        mlflow.log_param("using_thesis_node_features", "abstract_embeding")
 
         # mentor_node_repr = self.mentor_lin(data["mentor"].x) + self.mentor_emb(
         #     data["mentor"].node_id
@@ -48,7 +46,6 @@ class Model(torch.nn.Module):
         # mlflow.log_param("using_mentor_node_features", "interests(one-hot)")
 
         mentor_node_repr = self.mentor_emb(data["mentor"].node_id)
-        mlflow.log_param("using_mentor_node_features", "none")
 
         x_dict = {
             "thesis": thesis_node_repr,

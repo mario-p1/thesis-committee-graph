@@ -3,8 +3,8 @@ train:
 	uv run python -m thesis_graph.train
 
 .PHONY:
-mlflow:
-	uv run python -m mlflow ui --backend-store-uri sqlite:///mlflow.db
+tensorboard:
+	uv run tensorboard --logdir runs
 
 .PHONY:
 install_deps_cpu:

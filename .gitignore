@@ -216,7 +216,5 @@ __marimo__/
 
 # Project
 data/
-mlruns/
-mlflow.db
-mlflow.db-journal
 graph_data.pkl
+runs/
