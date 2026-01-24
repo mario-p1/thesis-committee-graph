@@ -199,8 +199,15 @@ def main():
         val_metrics = calculate_metrics(val_labels, val_scores, val_preds)
         log_metrics_tb(writer, val_metrics, "val", epoch)
 
-        writer.add_pr_curve("PR Curve/train", train_labels, train_scores, epoch)
-        writer.add_pr_curve("PR Curve/val", val_labels, val_scores, epoch)
+        if epoch % 5 == 0:
+            writer.add_pr_curve("PR Curve/train", train_labels, train_scores, epoch)
+            writer.add_pr_curve("PR Curve/val", val_labels, val_scores, epoch)
+            writer.add_embedding(
+                model.mentor_emb.weight.cpu(),
+                metadata=mentors_dict,
+                global_step=epoch,
+                tag="Mentor Embeddings",
+            )
 
         if val_metrics["pr_auc"] > val_best_metrics.get("pr_auc", 0):
             val_best_epoch = epoch

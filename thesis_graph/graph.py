@@ -124,7 +124,7 @@ def build_graphs(
     mentors_dict = build_mentors_dict(train_df)
 
     # TODO: Remove after debugging
-    train_df = train_df[:10]
+    # train_df = train_df[:10]
 
     orig_train_data = build_single_graph(train_df, mentors_dict=mentors_dict)
 
