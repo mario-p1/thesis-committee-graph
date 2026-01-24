@@ -18,6 +18,8 @@ def load_thesis_csv(path: Path) -> pd.DataFrame:
         "thesis_title_en",
     ]
     df["application_date"] = pd.to_datetime(df["application_date"], format="%d.%m.%Y")
+    df = df.sort_values(by="application_date", ascending=True)
+    df = df.reset_index(drop=True)
     return df
 
 
@@ -32,9 +34,6 @@ def load_researchers_csv(path: Path) -> pd.DataFrame:
 
 
 def train_test_split_thesis_df(df: pd.DataFrame, train_ratio: float, val_ratio: float):
-    df = df.sort_values(by="application_date", ascending=True)
-    df = df.reset_index(drop=True)
-
     train_cut = int(df.shape[0] * train_ratio)
     val_cut = int(df.shape[0] * (train_ratio + val_ratio))
 

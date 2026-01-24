@@ -108,8 +108,8 @@ def main():
     mlflow.log_param("gnn_num_layers", gnn_num_layers)
 
     # Build and save graph data
-    # graphs_data = build_graphs(disjoint_train_ratio=disjoint_train_ratio)
-    # pickle.dump(graphs_data, open("graph_data.pkl", "wb"))
+    graphs_data = build_graphs(disjoint_train_ratio=disjoint_train_ratio)
+    pickle.dump(graphs_data, open("graph_data.pkl", "wb"))
 
     # Load saved graph data from disk
     graphs_data = pickle.load(open("graph_data.pkl", "rb"))
