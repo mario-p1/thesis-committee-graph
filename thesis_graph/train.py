@@ -134,8 +134,8 @@ def main():
             train_data["thesis", "supervised_by", "mentor"].edge_label_index,
         ),
         edge_label=train_data["thesis", "supervised_by", "mentor"].edge_label,
-        shuffle=True,
-        neg_sampling_ratio=neg_sampling_train_ratio,
+        shuffle=False,
+        neg_sampling_ratio=0,
     )
 
     val_loader = LinkNeighborLoader(

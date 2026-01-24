@@ -1,4 +1,5 @@
 from pathlib import Path
+import random
 
 import pandas as pd
 import torch
@@ -30,10 +31,10 @@ def build_single_graph(
     graph["mentor"].node_id = torch.arange(len(mentors_dict))
 
     # => Thesis supervised by mentor links
+    thesis_indices = torch.arange(len(thesis_df))
     mentor_indices = list(
         thesis_df["mentor"].apply(lambda mentor: mentors_dict[mentor])
     )
-    thesis_indices = torch.arange(len(thesis_df))
 
     thesis_supervised_by_mentor_indices = torch.vstack(
         [
@@ -49,6 +50,8 @@ def build_single_graph(
     graph[
         "mentor", "supervises", "thesis"
     ].edge_index = thesis_supervised_by_mentor_indices.flip(0)
+
+    # TODO: Verify the flip 0 is correct
 
     # ==> Labels
     if add_edge_labels:
@@ -73,6 +76,38 @@ def build_mentors_dict(thesis_df: pd.DataFrame) -> dict[str, int]:
     mentors = sorted(thesis_df["mentor"].unique().tolist())
     mentors_dict = {mentor: index for index, mentor in enumerate(mentors)}
     return mentors_dict
+
+
+def add_negatives_to_edge_labels(
+    graph: HeteroData, link: tuple[str], negative_rate: int
+):
+    negative_links = []
+
+    positive_links = graph[link].edge_label_index.t().tolist()
+
+    dest_possible_choices = graph[link[-1]].num_nodes
+
+    for _ in range(negative_rate):
+        for source, dest in positive_links:
+            rnd_dest = (
+                dest + random.randint(1, dest_possible_choices - 1)
+            ) % dest_possible_choices
+
+            negative_links.append([source, rnd_dest])
+
+    # Set negative edge labels
+    negative_links_tensor = torch.LongTensor(negative_links).t()
+    all_edge_index = torch.cat(
+        [graph[link].edge_label_index, negative_links_tensor], dim=1
+    )
+    graph[link].edge_label_index = all_edge_index
+
+    positive_edge_labels = graph[link].edge_label
+    negative_edge_labels = torch.zeros(
+        negative_links_tensor.shape[1], dtype=positive_edge_labels.dtype
+    )
+    all_edge_labels = torch.cat([positive_edge_labels, negative_edge_labels], dim=0)
+    graph[link].edge_label = all_edge_labels
 
 
 def build_graphs(
@@ -105,6 +140,12 @@ def build_graphs(
 
     # Split train data into train MESSAGE PASSING and train CLASSIFICATION
     train_data = train_splitter(orig_train_data)[0]
+
+    add_negatives_to_edge_labels(
+        train_data,
+        ("thesis", "supervised_by", "mentor"),
+        1,
+    )
 
     val_data = build_single_graph(
         val_df, mentors_dict=mentors_dict, add_edge_labels=True
