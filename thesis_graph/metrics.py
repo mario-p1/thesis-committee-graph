@@ -14,7 +14,7 @@ from thesis_graph.model import Model
 from thesis_graph.utils import reverse_dict
 
 
-def get_metrics(y_true, y_scores, y_preds) -> dict[str, float]:
+def calculate_metrics(y_true, y_scores, y_preds) -> dict[str, float]:
     f1 = f1_score(y_true, y_preds, average="weighted")
     accuracy = accuracy_score(y_true, y_preds)
     precision = precision_score(y_true, y_preds)
@@ -39,6 +39,13 @@ def add_prefix_to_metrics(metrics: dict[str, float], prefix: str) -> dict[str, f
     return {f"{prefix}_{key}": value for key, value in metrics.items()}
 
 
+def log_metrics_tb(writer, metrics: dict[str, float], split: str = "", epoch=None):
+    for key, value in metrics.items():
+        logkey = f"{key.capitalize()}/{split}" if split else key.capitalize()
+        writer.add_scalar(logkey, value, epoch)
+
+
+# TODO: Revise the correctness and usefulness of this function
 def get_ranking_metrics(
     data: torch_geometric.data.HeteroData,
     model: Model,

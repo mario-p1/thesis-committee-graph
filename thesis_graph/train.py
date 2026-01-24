@@ -10,7 +10,7 @@ from torch_geometric import seed_everything
 from torch_geometric.loader import LinkNeighborLoader
 
 from thesis_graph.graph import build_graphs
-from thesis_graph.metrics import add_prefix_to_metrics, get_metrics, get_ranking_metrics
+from thesis_graph.metrics import calculate_metrics, log_metrics_tb
 from thesis_graph.model import Model
 
 writer = SummaryWriter()
@@ -80,14 +80,21 @@ def validate(
 
 def main():
     # Hyperparameters
+    ## Data
     disjoint_train_ratio = 0.3
     neg_sampling_train_ratio = 1
     neg_sampling_val_test_ratio = 1
-    num_epochs = 100
+
+    ## Training
+    num_epochs = 200
+    learning_rate = 0.0001
+
+    ## Model embedding
     node_embedding_channels = 256
-    hidden_channels = 32
-    learning_rate = 0.001
-    gnn_num_layers = 3
+
+    ## Model GNN
+    hidden_channels = 256
+    gnn_num_layers = 2
 
     seed_everything(42)
     pd.options.display.max_rows = 20
@@ -144,19 +151,6 @@ def main():
         neg_sampling_ratio=neg_sampling_val_test_ratio,
     )
 
-    # test_loader = LinkNeighborLoader(
-    #     data=test_data,
-    #     num_neighbors=[-1],
-    #     batch_size=len(test_data["thesis", "supervised_by", "mentor"]["edge_index"][0]),
-    #     edge_label_index=(
-    #         ("thesis", "supervised_by", "mentor"),
-    #         test_data["thesis", "supervised_by", "mentor"].edge_label_index,
-    #     ),
-    #     edge_label=test_data["thesis", "supervised_by", "mentor"].edge_label,
-    #     shuffle=False,
-    #     neg_sampling_ratio=neg_sampling_val_test_ratio,
-    # )
-
     model = Model(
         num_mentors=train_data["mentor"].num_nodes,
         thesis_features_dim=train_data["thesis"].x.shape[1],
@@ -187,32 +181,28 @@ def main():
                 device=device,
             )
 
+        # Loss and predictions
         train_loss, train_scores, train_preds, train_labels = validate(
             model, train_loader, device
         )
+        writer.add_scalar("Loss/train", train_loss, epoch)
+
         val_loss, val_scores, val_preds, val_labels = validate(
             model, val_loader, device
         )
-
-        writer.add_scalar("Loss/train", train_loss, epoch)
         writer.add_scalar("Loss/val", val_loss, epoch)
 
-        val_metrics = get_metrics(val_labels, val_scores, val_preds)
-        train_metrics = get_metrics(train_labels, train_scores, train_preds)
+        # Metrics
+        train_metrics = calculate_metrics(train_labels, train_scores, train_preds)
+        log_metrics_tb(writer, train_metrics, "train", epoch)
 
-        train_ranking_scores = get_ranking_metrics(
-            train_data, model, device, mentors_dict
-        )
-        val_ranking_scores = get_ranking_metrics(val_data, model, device, mentors_dict)
+        val_metrics = calculate_metrics(val_labels, val_scores, val_preds)
+        log_metrics_tb(writer, val_metrics, "val", epoch)
 
         if val_metrics["pr_auc"] > val_best_metrics.get("pr_auc", 0):
             val_best_epoch = epoch
             val_best_metrics = val_metrics
-
-            val_best_report = classification_report(
-                val_labels,
-                val_preds,
-            )
+            val_best_report = classification_report(val_labels, val_preds)
 
         print(
             f"Epoch {epoch:02d}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
@@ -224,14 +214,8 @@ def main():
     print(val_best_report)
 
     _, _, last_epoch_preds, last_epoch_labels = validate(model, val_loader, device)
-    print("=> Latest epoch metrics:")
+    print("=> Last epoch metrics:")
     print(classification_report(last_epoch_labels, last_epoch_preds))
-
-    # _, test_scores, test_preds, test_labels = validate(model, test_loader, device)
-    # print("=> Test metrics:")
-    # test_metrics = get_metrics(test_labels, test_scores, test_preds)
-    # print(classification_report(test_labels, test_preds))
-    # print(pd.DataFrame({"test": test_metrics}))
 
     writer.flush()
     writer.close()
