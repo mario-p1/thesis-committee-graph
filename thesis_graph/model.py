@@ -4,6 +4,7 @@ from torch import Tensor
 from torch_geometric.data import HeteroData
 from torch_geometric.nn import to_hetero
 from torch_geometric.nn.models import GraphSAGE
+from torch_geometric.typing import EdgeType, NodeType
 
 
 class Classifier(torch.nn.Module):
@@ -14,29 +15,26 @@ class Classifier(torch.nn.Module):
 class Model(torch.nn.Module):
     def __init__(
         self,
+        num_mentors: int,
+        thesis_features_dim: int,
         node_embedding_channels: int,
         hidden_channels: int,
         gnn_num_layers: int,
-        data: HeteroData,
+        metadata: tuple[list[NodeType], list[EdgeType]],
     ):
         super().__init__()
 
-        # Thesis features
-        self.thesis_lin = torch.nn.Linear(384, node_embedding_channels)
+        # Linear layer for thesis features to node embedding channels
+        self.thesis_lin = torch.nn.Linear(thesis_features_dim, node_embedding_channels)
 
-        # Mentor features
-        # self.mentor_lin = torch.nn.Linear(117, node_embedding_channels)
-
-        self.mentor_emb = torch.nn.Embedding(
-            data["mentor"].num_nodes, node_embedding_channels
-        )
+        self.mentor_emb = torch.nn.Embedding(num_mentors, node_embedding_channels)
 
         self.gnn = GraphSAGE(
             in_channels=node_embedding_channels,
             hidden_channels=hidden_channels,
             num_layers=gnn_num_layers,
         )
-        self.gnn = to_hetero(self.gnn, metadata=data.metadata())
+        self.gnn = to_hetero(self.gnn, metadata=metadata)
 
         self.classifier = Classifier()
 

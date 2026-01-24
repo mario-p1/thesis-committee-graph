@@ -27,8 +27,7 @@ def build_single_graph(
     graph["thesis"].x = thesis_features
 
     # => Mentor nodes
-    graph["mentor"].node_id = torch.tensor(list(mentors_dict.values()))
-    # graph["mentor"].x = researchers_features
+    graph["mentor"].node_id = torch.arange(len(mentors_dict))
 
     # => Thesis supervised by mentor links
     mentor_indices = list(
@@ -77,20 +76,22 @@ def build_mentors_dict(thesis_df: pd.DataFrame) -> dict[str, int]:
 
 
 def build_graphs(
+    disjoint_train_ratio: float,
     thesis_path: Path = THESIS_CSV_PATH,
     train_ratio: float = 0.8,
     val_ratio: float = 0.1,
-    disjoint_train_ratio: float = 0.5,
 ):
     thesis_df = load_thesis_csv(thesis_path)
 
     train_df, val_df, test_df = train_test_split_thesis_df(
         thesis_df, train_ratio=train_ratio, val_ratio=val_ratio
     )
-
     mentors_dict = build_mentors_dict(train_df)
 
-    train_data = build_single_graph(train_df, mentors_dict=mentors_dict)
+    # TODO: Remove after debugging
+    train_df = train_df[:10]
+
+    orig_train_data = build_single_graph(train_df, mentors_dict=mentors_dict)
 
     # Split train links into message passing and supervision links
     train_splitter = RandomLinkSplit(
@@ -102,7 +103,8 @@ def build_graphs(
         neg_sampling_ratio=0,
     )
 
-    train_data = train_splitter(train_data)[0]
+    # Split train data into train MESSAGE PASSING and train CLASSIFICATION
+    train_data = train_splitter(orig_train_data)[0]
 
     val_data = build_single_graph(
         val_df, mentors_dict=mentors_dict, add_edge_labels=True

@@ -19,11 +19,10 @@ def train_epoch(
     loader: LinkNeighborLoader,
     optimizer: torch.optim.Optimizer,
     device: torch.device,
-    pos_weight: float,
 ):
     model.train()
     total_loss = total_examples = 0
-    pos_weight_tensor = torch.tensor(pos_weight, device=device)
+
     for sampled_data in tqdm.tqdm(loader):
         optimizer.zero_grad()
 
@@ -31,9 +30,7 @@ def train_epoch(
         y = sampled_data["thesis", "supervised_by", "mentor"].edge_label
 
         pred = model(sampled_data)
-        loss = F.binary_cross_entropy_with_logits(pred, y, pos_weight=pos_weight_tensor)
-
-        # breakpoint()
+        loss = F.binary_cross_entropy_with_logits(pred, y)
 
         loss.backward()
         optimizer.step()
@@ -82,9 +79,8 @@ def validate(
 def main():
     # Hyperparameters
     disjoint_train_ratio = 0.3
-    neg_sampling_train_ratio = 5
-    pos_weight = neg_sampling_train_ratio
-    neg_sampling_val_test_ratio = 10
+    neg_sampling_train_ratio = 1
+    neg_sampling_val_test_ratio = 1
     num_epochs = 100
     node_embedding_channels = 256
     hidden_channels = 32
@@ -99,7 +95,6 @@ def main():
 
     mlflow.log_param("disjoint_train_ratio", disjoint_train_ratio)
     mlflow.log_param("neg_sampling_train_ratio", neg_sampling_train_ratio)
-    mlflow.log_param("pos_weight", pos_weight)
     mlflow.log_param("neg_sampling_val_test_ratio", neg_sampling_val_test_ratio)
     mlflow.log_param("num_epochs", num_epochs)
     mlflow.log_param("node_embedding_channels", node_embedding_channels)
@@ -114,12 +109,14 @@ def main():
     # Load saved graph data from disk
     graphs_data = pickle.load(open("graph_data.pkl", "rb"))
 
-    mentors_dict, train_data, val_data, test_data = graphs_data
+    mentors_dict, train_data, val_data, _ = graphs_data
 
     train_loader = LinkNeighborLoader(
         data=train_data,
         num_neighbors=[-1],
-        batch_size=4096,
+        batch_size=len(
+            train_data["thesis", "supervised_by", "mentor"]["edge_index"][0]
+        ),
         edge_label_index=(
             ("thesis", "supervised_by", "mentor"),
             train_data["thesis", "supervised_by", "mentor"].edge_label_index,
@@ -132,7 +129,7 @@ def main():
     val_loader = LinkNeighborLoader(
         data=val_data,
         num_neighbors=[-1],
-        batch_size=4096,
+        batch_size=len(val_data["thesis", "supervised_by", "mentor"]["edge_index"][0]),
         edge_label_index=(
             ("thesis", "supervised_by", "mentor"),
             val_data["thesis", "supervised_by", "mentor"].edge_label_index,
@@ -142,24 +139,26 @@ def main():
         neg_sampling_ratio=neg_sampling_val_test_ratio,
     )
 
-    test_loader = LinkNeighborLoader(
-        data=test_data,
-        num_neighbors=[-1],
-        batch_size=4096,
-        edge_label_index=(
-            ("thesis", "supervised_by", "mentor"),
-            test_data["thesis", "supervised_by", "mentor"].edge_label_index,
-        ),
-        edge_label=test_data["thesis", "supervised_by", "mentor"].edge_label,
-        shuffle=False,
-        neg_sampling_ratio=neg_sampling_val_test_ratio,
-    )
+    # test_loader = LinkNeighborLoader(
+    #     data=test_data,
+    #     num_neighbors=[-1],
+    #     batch_size=len(test_data["thesis", "supervised_by", "mentor"]["edge_index"][0]),
+    #     edge_label_index=(
+    #         ("thesis", "supervised_by", "mentor"),
+    #         test_data["thesis", "supervised_by", "mentor"].edge_label_index,
+    #     ),
+    #     edge_label=test_data["thesis", "supervised_by", "mentor"].edge_label,
+    #     shuffle=False,
+    #     neg_sampling_ratio=neg_sampling_val_test_ratio,
+    # )
 
     model = Model(
+        num_mentors=train_data["mentor"].num_nodes,
+        thesis_features_dim=train_data["thesis"].x.shape[1],
         node_embedding_channels=node_embedding_channels,
         hidden_channels=hidden_channels,
         gnn_num_layers=gnn_num_layers,
-        data=train_data,
+        metadata=train_data.metadata(),
     )
     print("=> Model")
     print(model)
@@ -181,7 +180,6 @@ def main():
                 loader=train_loader,
                 optimizer=optimizer,
                 device=device,
-                pos_weight=pos_weight,
             )
 
         train_loss, train_scores, train_preds, train_labels = validate(
