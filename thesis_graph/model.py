@@ -7,14 +7,17 @@ from torch_geometric.typing import EdgeType, NodeType
 
 
 class Classifier(torch.nn.Module):
-    def __init__(self, thesis_dim: int, mentor_dim: int):
+    def __init__(self, thesis_dim: int, professor_dim: int):
         super().__init__()
 
-        self.lin = torch.nn.Linear(thesis_dim + mentor_dim, 1)
+        self.lin = torch.nn.Linear(thesis_dim + professor_dim + professor_dim, 1)
 
-    def forward(self, x_thesis: Tensor, x_mentor: Tensor) -> Tensor:
-        return self.lin(torch.cat([x_thesis, x_mentor], dim=-1)).view(-1)
-        return (x_thesis * x_mentor).sum(dim=-1)
+    def forward(
+        self, x_thesis: Tensor, x_mentor: Tensor, x_committee_member: Tensor
+    ) -> Tensor:
+        return self.lin(
+            torch.cat([x_thesis, x_mentor, x_committee_member], dim=-1)
+        ).view(-1)
 
 
 class Model(torch.nn.Module):
@@ -40,6 +43,7 @@ class Model(torch.nn.Module):
             in_channels=node_embedding_channels,
             hidden_channels=hidden_channels,
             num_layers=gnn_num_layers,
+            aggr="sum",
         )
         self.gnn = to_hetero(self.gnn, metadata=metadata)
 
@@ -49,32 +53,35 @@ class Model(torch.nn.Module):
     def forward(self, data: HeteroData) -> Tensor:
         thesis_node_repr = self.thesis_lin(data["thesis"].x)
 
-        mentor_node_repr = self.professor_emb(data["mentor"].node_id)
+        professor_node_repr = self.professor_emb(data["professor"].node_id)
 
         x_dict = {
             "thesis": thesis_node_repr,
-            "mentor": mentor_node_repr,
+            "professor": professor_node_repr,
         }
 
         x_dict = self.gnn(x_dict, data.edge_index_dict)
 
-        eli = data["thesis", "supervised_by", "mentor"].edge_label_index
-        # breakpoint()
+        com_member_label_index = data[
+            "thesis", "has_committee_member", "professor"
+        ].edge_label_index
+
+        sup_by_edge_index = data["thesis", "supervised_by", "professor"].edge_index
+        sup_by_dict = sup_by_edge_index.cpu()
+        sup_by_dict = {
+            thesis.item(): mentor.item()
+            for thesis, mentor in zip(sup_by_dict[0], sup_by_dict[1])
+        }
+
+        # Mentor id for each thesis in the com_member_label_index
+        mentors_indices = [
+            sup_by_dict[thesis.item()] for thesis in com_member_label_index[0].cpu()
+        ]
+
         pred = self.classifier(
-            x_dict["thesis"][eli[0]],
-            x_dict["mentor"][eli[1]],
+            x_dict["thesis"][com_member_label_index[0]],
+            x_dict["professor"][torch.LongTensor(mentors_indices)],
+            x_dict["professor"][com_member_label_index[1]],
         )
 
         return pred
-
-    def get_prediction_new_thesis(self, thesis_features: Tensor) -> Tensor:
-        thesis_node_repr = self.thesis_lin(thesis_features.unsqueeze(0))
-
-        mentor_node_repr = self.professor_emb.weight
-
-        scores = self.classifier(
-            thesis_node_repr.repeat(mentor_node_repr.size(0), 1),
-            mentor_node_repr,
-        )
-
-        return scores
