@@ -21,9 +21,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train the thesis graph model.")
 
     # Data
-    parser.add_argument("--disjoint-train-ratio", type=float)
-    parser.add_argument("--neg-sampling-train-ratio", type=int)
-    parser.add_argument("--neg-sampling-val-test-ratio", type=int)
+    parser.add_argument("--disjoint-train-ratio", type=float, required=True)
+    parser.add_argument("--neg-sampling-train-ratio", type=int, required=True)
+    parser.add_argument("--neg-sampling-val-test-ratio", type=int, required=True)
     parser.add_argument(
         "--thesis-filter",
         type=int,
@@ -33,19 +33,19 @@ def parse_args() -> argparse.Namespace:
     )
 
     # Training
-    parser.add_argument("--num-epochs", type=int)
-    parser.add_argument("--learning-rate", type=float)
+    parser.add_argument("--num-epochs", type=int, required=True)
+    parser.add_argument("--learning-rate", type=float, required=True)
 
     # Model embedding
-    parser.add_argument("--node-embedding-dim", type=int)
+    parser.add_argument("--node-embedding-dim", type=int, required=True)
 
     # Model GNN
-    parser.add_argument("--gnn-dim", type=int)
-    parser.add_argument("--gnn-num-layers", type=int)
+    parser.add_argument("--gnn-dim", type=int, required=True)
+    parser.add_argument("--gnn-num-layers", type=int, required=True)
 
     # Model classifier
-    parser.add_argument("--classifier-dim", type=int)
-    parser.add_argument("--threshold", type=float)
+    parser.add_argument("--classifier-dim", type=int, required=True)
+    parser.add_argument("--threshold", type=float, required=True)
 
     return parser.parse_args()
 
