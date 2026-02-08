@@ -12,10 +12,10 @@ from torch_geometric import seed_everything
 from torch_geometric.data import HeteroData
 from torch_geometric.loader import LinkNeighborLoader
 
-from thesis_graph.data import load_thesis_csv, prepare_thesis_data_splits
-from thesis_graph.graph import build_graphs
-from thesis_graph.metrics import calculate_metrics, log_metrics_tb
-from thesis_graph.model import Model
+from committee_predictor.data import load_thesis_csv, prepare_thesis_data_splits
+from committee_predictor.graph import build_graphs
+from committee_predictor.metrics import calculate_metrics, log_metrics_tb
+from committee_predictor.model import Model
 
 writer = SummaryWriter()
 

@@ -1,6 +1,6 @@
 .PHONY:
 train:
-	uv run python -m thesis_graph.train \
+	uv run python -m committee_predictor.train \
 		--disjoint-train-ratio 0.4 \
 		--neg-sampling-train-ratio 2 \
 		--neg-sampling-val-test-ratio 2 \

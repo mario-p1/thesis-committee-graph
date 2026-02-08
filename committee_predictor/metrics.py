@@ -11,8 +11,8 @@ from sklearn.metrics import (
 import torch
 import torch_geometric
 
-from thesis_graph.model import Model
-from thesis_graph.utils import reverse_dict
+from committee_predictor.model import Model
+from committee_predictor.utils import reverse_dict
 
 
 def calculate_metrics(y_true, y_pred_prob, y_pred_cat) -> dict[str, float]:

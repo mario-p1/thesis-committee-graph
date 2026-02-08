@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from thesis_graph import config
+from committee_predictor import config
 
 
 def load_thesis_csv(path: Path = config.THESIS_CSV_PATH) -> pd.DataFrame:

@@ -5,7 +5,7 @@ import torch
 from torch_geometric.data import HeteroData
 from torch_geometric.transforms import RandomLinkSplit
 
-from thesis_graph.embedding import embed_text
+from committee_predictor.embedding import embed_text
 
 
 def build_single_graph(
