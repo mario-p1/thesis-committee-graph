@@ -11,7 +11,11 @@ from torch_geometric.data import HeteroData
 
 from committee_predictor.data import load_thesis_csv, prepare_thesis_data_splits
 from committee_predictor.graph import build_graphs
-from committee_predictor.metrics import calculate_metrics, log_metrics_tb
+from committee_predictor.metrics import (
+    add_prefix_to_metrics,
+    calculate_metrics,
+    log_metrics_tb,
+)
 from committee_predictor.model import Model
 
 writer = SummaryWriter()
@@ -143,23 +147,6 @@ def main():
     pd.options.display.max_rows = 20
     pd.options.display.max_columns = 20
 
-    writer.add_hparams(
-        {
-            "disjoint_train_ratio": disjoint_train_ratio,
-            "neg_sampling_train_ratio": neg_sampling_train_ratio,
-            "neg_sampling_val_test_ratio": neg_sampling_val_test_ratio,
-            "num_epochs": num_epochs,
-            "node_embedding_dim": node_embedding_dim,
-            "gnn_dim": gnn_dim,
-            "learning_rate": learning_rate,
-            "gnn_num_layers": gnn_num_layers,
-            "thesis_filter": thesis_filter,
-            "classifier_dim": classifier_dim,
-            "threshold": threshold,
-        },
-        {},
-    )
-
     # Build and save graph data
     thesis_df = load_thesis_csv()
     professors_lookup, train_df, val_df, test_df = prepare_thesis_data_splits(
@@ -257,6 +244,23 @@ def main():
     )
     _, _, _, _, test_metrics = validate_and_calculate_metrics(
         model=model, data=test_data, threshold=threshold
+    )
+
+    writer.add_hparams(
+        {
+            "disjoint_train_ratio": disjoint_train_ratio,
+            "neg_sampling_train_ratio": neg_sampling_train_ratio,
+            "neg_sampling_val_test_ratio": neg_sampling_val_test_ratio,
+            "num_epochs": num_epochs,
+            "node_embedding_dim": node_embedding_dim,
+            "gnn_dim": gnn_dim,
+            "learning_rate": learning_rate,
+            "gnn_num_layers": gnn_num_layers,
+            "thesis_filter": thesis_filter,
+            "classifier_dim": classifier_dim,
+            "threshold": threshold,
+        },
+        add_prefix_to_metrics(val_metrics, prefix="fval"),
     )
 
     print("=> Metrics at the last epoch:")
