@@ -1,15 +1,17 @@
 .PHONY:
 train:
 	uv run python -m committee_predictor.train \
-		--disjoint-train-ratio 0.4 \
+		--disjoint-train-ratio 0.5 \
 		--neg-sampling-train-ratio 3 \
 		--neg-sampling-val-test-ratio 3 \
 		--thesis-filter -1000 \
-		--num-epochs 300 \
+		--num-epochs 125 \
 		--learning-rate 0.0003 \
-		--node-embedding-channels 128 \
-		--hidden-channels 64 \
-		--gnn-num-layers 2
+		--node-embedding-dim 128 \
+		--gnn-dim 64 \
+		--gnn-num-layers 2 \
+		--classifier-dim 32 \
+		--threshold 0.5
 
 .PHONY:
 train_best:
@@ -23,7 +25,8 @@ train_best:
 		--node-embedding-dim 128 \
 		--gnn-dim 64 \
 		--gnn-num-layers 2 \
-		--classifier-dim 32
+		--classifier-dim 32 \
+		--threshold 0.5
 
 .PHONY:
 tensorboard:

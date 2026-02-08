@@ -5,7 +5,6 @@ import random
 import pandas as pd
 import torch
 import torch.nn.functional as F
-from sklearn.metrics import classification_report
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric import seed_everything
 from torch_geometric.data import HeteroData
@@ -46,6 +45,7 @@ def parse_args() -> argparse.Namespace:
 
     # Model classifier
     parser.add_argument("--classifier-dim", type=int)
+    parser.add_argument("--threshold", type=float)
 
     return parser.parse_args()
 
@@ -72,9 +72,8 @@ def train_epoch(
 
 
 def validate(
-    model: Model,
-    data: HeteroData,
-) -> tuple[float, list, list, list]:
+    model: Model, data: HeteroData, threshold: float
+) -> tuple[float, torch.Tensor, torch.Tensor, torch.Tensor]:
     # Returns: loss, pred probabilities, pred categories, ground truth labels
     model.eval()
     all_pred_probs = []
@@ -93,15 +92,26 @@ def validate(
         pred_probs = torch.sigmoid(pred)
 
         all_pred_probs.append(pred_probs.cpu())
-        all_pred_cats.append((pred_probs > 0.5).cpu().int())
+        all_pred_cats.append((pred_probs > threshold).cpu().int())
         all_labels.append(labels.cpu())
 
-    return (
-        loss.item(),
-        torch.cat(all_pred_probs),
-        torch.cat(all_pred_cats),
-        torch.cat(all_labels),
+    all_pred_probs = torch.cat(all_pred_probs)
+    all_pred_cats = torch.cat(all_pred_cats)
+    all_labels = torch.cat(all_labels)
+
+    return (loss.item(), all_pred_probs, all_pred_cats, all_labels)
+
+
+def validate_and_calculate_metrics(
+    model: Model,
+    data: HeteroData,
+    threshold: float,
+) -> tuple[float, torch.Tensor, torch.Tensor, torch.Tensor, dict]:
+    loss, pred_probs, pred_cats, labels = validate(
+        model=model, data=data, threshold=threshold
     )
+    metrics = calculate_metrics(labels, pred_probs, pred_cats)
+    return (loss, pred_probs, pred_cats, labels, metrics)
 
 
 def main():
@@ -119,7 +129,10 @@ def main():
 
     # Model embedding
     node_embedding_dim = args.node_embedding_dim
+
+    # Model classifier
     classifier_dim = args.classifier_dim
+    threshold = args.threshold
 
     # Model GNN
     gnn_dim = args.gnn_dim
@@ -142,6 +155,7 @@ def main():
             "gnn_num_layers": gnn_num_layers,
             "thesis_filter": thesis_filter,
             "classifier_dim": classifier_dim,
+            "threshold": threshold,
         },
         {},
     )
@@ -203,23 +217,20 @@ def main():
             )
 
         # Loss and predictions
-        train_loss, train_pred_probs, train_pred_cats, train_labels = validate(
-            model=model, data=train_data
+        train_loss, train_pred_probs, _, train_labels, train_metrics = (
+            validate_and_calculate_metrics(
+                model=model, data=train_data, threshold=threshold
+            )
         )
         writer.add_scalar("Loss/train", train_loss, epoch)
-
-        val_loss, val_pred_probs, val_pred_cats, val_labels = validate(
-            model=model, data=val_data
-        )
-        writer.add_scalar("Loss/val", val_loss, epoch)
-
-        # Metrics
-        train_metrics = calculate_metrics(
-            train_labels, train_pred_probs, train_pred_cats
-        )
         log_metrics_tb(writer, train_metrics, "train", epoch)
 
-        val_metrics = calculate_metrics(val_labels, val_pred_probs, val_pred_cats)
+        val_loss, val_pred_probs, _, val_labels, val_metrics = (
+            validate_and_calculate_metrics(
+                model=model, data=val_data, threshold=threshold
+            )
+        )
+        writer.add_scalar("Loss/val", val_loss, epoch)
         log_metrics_tb(writer, val_metrics, "val", epoch)
 
         if epoch % 5 == 0:
@@ -238,17 +249,20 @@ def main():
 
         writer.flush()
 
-    _, _, last_epoch_pred_cats, last_epoch_labels = validate(model=model, data=val_data)
-    print("=> Last epoch metrics:")
-    print(classification_report(last_epoch_labels, last_epoch_pred_cats))
-
-    print("=> Final test metrics:")
-    _, test_pred_probs, test_pred_cats, test_labels = validate(
-        model=model, data=test_data
+    _, _, _, _, train_metrics = validate_and_calculate_metrics(
+        model=model, data=train_data, threshold=threshold
     )
-    test_metrics = calculate_metrics(test_labels, test_pred_probs, test_pred_cats)
-    print(classification_report(test_labels, test_pred_cats))
-    print(test_metrics)
+    _, _, _, _, val_metrics = validate_and_calculate_metrics(
+        model=model, data=val_data, threshold=threshold
+    )
+    _, _, _, _, test_metrics = validate_and_calculate_metrics(
+        model=model, data=test_data, threshold=threshold
+    )
+
+    print("=> Metrics at the last epoch:")
+    print(
+        pd.DataFrame({"train": train_metrics, "val": val_metrics, "test": test_metrics})
+    )
 
     writer.flush()
     writer.close()
