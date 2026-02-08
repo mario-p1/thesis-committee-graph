@@ -190,36 +190,33 @@ def main():
         )
         writer.add_scalar("Loss/train", train_loss, epoch)
 
-        # val_loss, val_scores, val_preds, val_labels = validate(
-        #     model, None, val_data, device
-        # )
-        # writer.add_scalar("Loss/val", val_loss, epoch)
+        val_loss, val_scores, val_preds, val_labels = validate(
+            model, None, val_data, device
+        )
+        writer.add_scalar("Loss/val", val_loss, epoch)
 
         # Metrics
         train_metrics = calculate_metrics(train_labels, train_scores, train_preds)
         log_metrics_tb(writer, train_metrics, "train", epoch)
 
-        # val_metrics = calculate_metrics(val_labels, val_scores, val_preds)
-        # log_metrics_tb(writer, val_metrics, "val", epoch)
+        val_metrics = calculate_metrics(val_labels, val_scores, val_preds)
+        log_metrics_tb(writer, val_metrics, "val", epoch)
 
         if epoch % 5 == 0:
             writer.add_pr_curve("PR Curve/train", train_labels, train_scores, epoch)
-            # writer.add_pr_curve("PR Curve/val", val_labels, val_scores, epoch)
+            writer.add_pr_curve("PR Curve/val", val_labels, val_scores, epoch)
             writer.add_embedding(
                 model.professor_emb.weight.cpu(),
                 metadata=professors_lookup,
                 global_step=epoch,
                 tag="Mentor Embeddings",
             )
-        val_loss = 0.0  # Placeholder since val_loss is commented out
+
         print(
             f"Epoch {epoch:02d}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
         )
 
         writer.flush()
-
-    # print(f"=> Val best metrics (epoch: {val_best_epoch}):")
-    # print(val_best_report)
 
     # _, _, last_epoch_preds, last_epoch_labels = validate(model, None, val_data, device)
     # print("=> Last epoch metrics:")

@@ -20,6 +20,7 @@ from thesis_graph.embedding import embed_text
 def build_single_graph(
     thesis_df: pd.DataFrame,
     professors_lookup: dict[str, int],
+    add_edge_labels: bool = False,
 ) -> HeteroData:
     # Empty graph
     graph = HeteroData()
@@ -76,6 +77,16 @@ def build_single_graph(
     graph[
         "professor", "is_committee_member_of", "thesis"
     ].edge_index = comission_edges.flip(0)
+
+    if add_edge_labels:
+        # Add edge labels for the "has_committee_member" edges
+        num_positive_edges = comission_edges.shape[1]
+        graph["thesis", "has_committee_member", "professor"].edge_label = torch.ones(
+            num_positive_edges, dtype=torch.long
+        )
+        graph[
+            "thesis", "has_committee_member", "professor"
+        ].edge_label_index = comission_edges
 
     # Validate graph
     graph.validate()
@@ -147,19 +158,19 @@ def build_graphs(
     )
 
     val_data = None
-    # val_data = build_single_graph(
-    #     val_df, professors_lookup=professors_lookup, add_edge_labels=True
-    # )
-    # add_negatives_to_edge_labels(
-    #     val_data, ("thesis", "has_committee_member", "professor"), neg_val_test_ratio
-    # )
+    val_data = build_single_graph(
+        val_df, professors_lookup=professors_lookup, add_edge_labels=True
+    )
+    add_negatives_to_edge_labels(
+        val_data, ("thesis", "has_committee_member", "professor"), neg_val_test_ratio
+    )
 
     test_data = None
-    # test_data = build_single_graph(
-    #     test_df, professors_lookup=professors_lookup, add_edge_labels=True
-    # )
-    # add_negatives_to_edge_labels(
-    #     test_data, ("thesis", "supervised_by", "mentor"), neg_val_test_ratio
-    # )
+    test_data = build_single_graph(
+        test_df, professors_lookup=professors_lookup, add_edge_labels=True
+    )
+    add_negatives_to_edge_labels(
+        test_data, ("thesis", "has_committee_member", "professor"), neg_val_test_ratio
+    )
 
     return train_data, val_data, test_data
